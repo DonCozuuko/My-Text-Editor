@@ -1,0 +1,16 @@
+{
+    "files.associations": {
+        "array": "c",
+        "charconv": "c",
+        "compare": "c",
+        "functional": "c",
+        "tuple": "c",
+        "type_traits": "c",
+        "utility": "c",
+        "variant": "c",
+        "string": "c",
+        "format": "c",
+        "*.m": "c"
+    },
+    "makefile.configureOnOpen": false
+}

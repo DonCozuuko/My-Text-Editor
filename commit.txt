@@ -1,0 +1,6 @@
+Things Done:
+ - Basically everything in the TODO in last commit,
+   except grid, zooming, reading
+
+TODO:
+ - READING MODE

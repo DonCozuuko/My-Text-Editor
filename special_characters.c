@@ -3,7 +3,7 @@
 
 void handleSpecialChars(int *key) {
     if (*key == KEY_ONE) {
-        *key = 33;
+        *key = 33;  // '!'
     } else if (*key == KEY_TWO) {
         *key = 64;  // '@'
     } else if (*key == KEY_THREE) {
