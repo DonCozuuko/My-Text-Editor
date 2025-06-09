@@ -9,12 +9,10 @@ static const int screenHeight = 540;
 static const int fpsCap = 60;
 
 #define MAX_INPUT_CHARS 200
-#define maxNumLines 50
+#define maxNumLines 1000
 
-static const float fontSize = 25.0;
-static const float fontSpacing = 2.0;
 static const int blinkRate = 40;        // how fast the cursor blinks
-static const int backspaceBuffer = 25;  // how long it takes to hold down backspace to rapidly backspace
+static const int backspaceBuffer = 15;  // how long it takes to hold down backspace to rapidly backspace
 
 #define textColor   GREEN
 #define lineColor   RED
@@ -314,6 +312,40 @@ void handleTabs(Line *inputBuffer[], Cursor *cursor) {
     inputBuffer[cursor->line]->string[cursor->indexPos] = '\0';
 }
 
+void handleDown(Line *inputBuffer[], Cursor *cursor, int *totalNumLines, int *defaultViewingLine) {
+    if (cursor->line < *totalNumLines - 1) {
+        cursor->line++;
+        int prevPos = cursor->indexPos;
+        if (prevPos > inputBuffer[cursor->line]->numChars) {
+            cursor->indexPos = inputBuffer[cursor->line]->numChars;
+        }
+        else {
+            cursor->indexPos = prevPos;
+        }
+        if ((cursor->line - *defaultViewingLine) == LOWER_SCROLL_BOUND) {
+            (*defaultViewingLine)++;
+        }
+    }
+}
+
+void handleUp(Line *inputBuffer[], Cursor *cursor, int *totalNumLines, int *defaultViewingLine) {
+    if (cursor->line != 0) {
+        int prevPos = cursor->indexPos;
+        cursor->line--;
+        if (prevPos > inputBuffer[cursor->line]->numChars) {
+            cursor->indexPos = inputBuffer[cursor->line]->numChars;
+        }
+        else {
+            cursor->indexPos = prevPos;
+        }
+        if ((cursor->line - *defaultViewingLine) == UPPER_SCROLL_BOUND) {
+            if (*defaultViewingLine != 0) {
+                (*defaultViewingLine)--;
+            }
+        }
+    }
+}
+
 void handleKeyPress(int key, Line *inputBuffer[], int *beginDisplay, int *shiftToggle,  int delTime[], int *totalNumLines, Cursor *cursor, int *defaultViewingLine) {
     // Handles rapid deleting with a counter buffer
     if (IsKeyDown(KEY_BACKSPACE)) {
@@ -322,9 +354,24 @@ void handleKeyPress(int key, Line *inputBuffer[], int *beginDisplay, int *shiftT
             handleBackspace(inputBuffer, totalNumLines, cursor);
         }
     }
+    else if (IsKeyDown(KEY_DOWN)) {
+        WaitTime(0.01);  // since its too fast 
+        delTime[0]++;
+        if (delTime[0] > backspaceBuffer) {
+            handleDown(inputBuffer, cursor, totalNumLines, defaultViewingLine);
+        }
+    }
+    else if (IsKeyDown(KEY_UP)) {
+        WaitTime(0.01);  // since its too fast
+        delTime[0]++;
+        if (delTime[0] > backspaceBuffer) {
+            handleUp(inputBuffer, cursor, totalNumLines, defaultViewingLine);
+        }
+    }
     else {
         delTime[0] = 0;
     }
+
 
     if (key > 0) {
         // edge case for first time displaying a character
@@ -342,7 +389,6 @@ void handleKeyPress(int key, Line *inputBuffer[], int *beginDisplay, int *shiftT
             // Single Delete
             handleBackspace(inputBuffer, totalNumLines, cursor);
             if ((cursor->line - *defaultViewingLine) == UPPER_SCROLL_BOUND) {
-                printf("\nACTIVATED\n");
                 (*defaultViewingLine)--;
                 // To prevent seg faults, since if *DFV is -1, there is no index -1 in line buffers array
                 if (*defaultViewingLine < 0) {
@@ -376,36 +422,10 @@ void handleKeyPress(int key, Line *inputBuffer[], int *beginDisplay, int *shiftT
         }
         else if (key == KEY_UP) {
             // To avoid seg faults since line -1 can't exist
-            if (cursor->line != 0) {
-                int prevPos = cursor->indexPos;
-                cursor->line--;
-                if (prevPos > inputBuffer[cursor->line]->numChars) {
-                    cursor->indexPos = inputBuffer[cursor->line]->numChars;
-                }
-                else {
-                    cursor->indexPos = prevPos;
-                }
-                if ((cursor->line - *defaultViewingLine) == UPPER_SCROLL_BOUND) {
-                    if (*defaultViewingLine != 0) {
-                        (*defaultViewingLine)--;
-                    }
-                }
-            }
+            handleUp(inputBuffer, cursor, totalNumLines, defaultViewingLine);
         }
         else if (key == KEY_DOWN) {
-            if (cursor->line < *totalNumLines - 1) {
-                cursor->line++;
-                int prevPos = cursor->indexPos;
-                if (prevPos > inputBuffer[cursor->line]->numChars) {
-                    cursor->indexPos = inputBuffer[cursor->line]->numChars;
-                }
-                else {
-                    cursor->indexPos = prevPos;
-                }
-                if ((cursor->line - *defaultViewingLine) == LOWER_SCROLL_BOUND) {
-                    (*defaultViewingLine)++;
-                }
-            }
+            handleDown(inputBuffer, cursor, totalNumLines, defaultViewingLine);
         }
         else if (key == KEY_TAB) {
             handleTabs(inputBuffer, cursor);
@@ -421,12 +441,14 @@ void handleKeyPress(int key, Line *inputBuffer[], int *beginDisplay, int *shiftT
         // printf("Total Lines = %d\n", *totalNumLines);
         // printf("VIEWING LINE - %d\n", *defaultViewingLine);
         // printf("CursorLine - %d, DVL - %d\n", cursor->line, *defaultViewingLine);
+        // printInputBuffer(inputBuffer, *totalNumLines);
+
     }
     // printf("\nIndexpos is %d\n", cursor->indexPos);
 
 }
 
-void DrawCursor(Vector2 startingPos, Line *inputBuffer[], int key, int blinkingClock[], Font font, Cursor *cursor, int *defaultViewingLine) {
+void DrawCursor(Vector2 startingPos, Line *inputBuffer[], int key, int blinkingClock[], Font font, Cursor *cursor, int *defaultViewingLine, float fontSize, float fontSpacing) {
     char *lineText = inputBuffer[cursor->line]->string;
     int cursorIndex = cursor->indexPos;
     Vector2 textSize = {0};
@@ -463,21 +485,20 @@ void DrawCursor(Vector2 startingPos, Line *inputBuffer[], int key, int blinkingC
     }
 }
 
-void DrawInput(Vector2 startingPos, Line *inputBuffer[], int *beginDisplay, Font font, int key, int blinkingClock[], int totalNumLines, Cursor *cursor, int *defaultViewingLine) {
+void DrawInput(Vector2 startingPos, Line *inputBuffer[], int *beginDisplay, Font font, int key, int blinkingClock[], int totalNumLines, Cursor *cursor, int *defaultViewingLine, float fontSize, float fontSpacing) {
     if (*beginDisplay == 1) {
         // Draw text input, flag conditional is for not drawing garbage values
         Vector2 pos = { startingPos.x, startingPos.y };
         for (int i = *defaultViewingLine; i < totalNumLines; i++) {
-            // printf("\n%s\n\n", inputBuffer[i]->string);
             DrawTextEx(font, inputBuffer[i]->string, pos, fontSize, fontSpacing, textColor);
             pos.y += fontSize;
         }
     }
     DrawText("CTRL + O to save", 860, 520, 10, textColor);
-    DrawCursor(startingPos, inputBuffer, key, blinkingClock, font, cursor, defaultViewingLine);
+    DrawCursor(startingPos, inputBuffer, key, blinkingClock, font, cursor, defaultViewingLine, fontSize, fontSpacing);
 }
 
-void DrawTextLines(Vector2 startingPos, Font font, int totalNumLines, int *defaultViewingLine) {
+void DrawTextLines(Vector2 startingPos, Font font, int totalNumLines, int *defaultViewingLine, float fontSize, float fontSpacing) {
     int index = 0;
     for (int i = *defaultViewingLine; i < totalNumLines; i++) {
         int lineNum = i;
@@ -486,10 +507,15 @@ void DrawTextLines(Vector2 startingPos, Font font, int totalNumLines, int *defau
             snprintf(text, 2, "%d", lineNum);
             Vector2 pos = { (startingPos.x / 2), startingPos.y + (fontSize * index)};
             DrawTextEx(font, text, pos, fontSize, fontSpacing, lineColor);
-        } else { 
+        } else if (i >= 10 && i < 100) { 
             char text[3];
             snprintf(text, 3, "%d", lineNum);
-            Vector2 pos = { (startingPos.x / 5), startingPos.y + (fontSize * index)};
+            Vector2 pos = { (startingPos.x / 3), startingPos.y + (fontSize * index)};
+            DrawTextEx(font, text, pos, fontSize, fontSpacing, lineColor);
+        } else if (i >= 100 && i < 1000) {
+            char text[4];
+            snprintf(text, 4, "%d", lineNum);
+            Vector2 pos = { (startingPos.x / 10), startingPos.y + (fontSize * index)};
             DrawTextEx(font, text, pos, fontSize, fontSpacing, lineColor);
         }
         index++;
@@ -497,7 +523,7 @@ void DrawTextLines(Vector2 startingPos, Font font, int totalNumLines, int *defau
 }
 
 void saveFunc(Line *inputBuffer[], int totalNumLines) {
-    FILE *pf = fopen("test.txt", "w");
+    FILE *pf = fopen("text.txt", "w");
     // new lines appended automatically to each line string
     for (int i = 0; i < totalNumLines; i++) {
         fprintf(pf, "%s\n", inputBuffer[i]->string);
@@ -505,7 +531,7 @@ void saveFunc(Line *inputBuffer[], int totalNumLines) {
     fclose(pf);
 }
 
-void shortCuts(Line *inputBuffer[], int *totalNumLines, Cursor *cursor, int *key, int *defaultViewingLine) {
+void shortCuts(Line *inputBuffer[], int *totalNumLines, Cursor *cursor, int *key, int *defaultViewingLine, float *fontSize, float *fontSpacing, Vector2 *startingPos) {
     if (IsKeyDown(KEY_LEFT_CONTROL)) {
         if (IsKeyPressed(KEY_O)) {
             saveFunc(inputBuffer, *totalNumLines);
@@ -523,35 +549,68 @@ void shortCuts(Line *inputBuffer[], int *totalNumLines, Cursor *cursor, int *key
                 *key = KEY_NULL;
             }
         }
-    }
-}
-
-void freeCleanUp(Line *inputBuffer[], int totalNumLines) {
-    for (int i = 0; i < totalNumLines; i++) {
-        if (inputBuffer[i] != NULL) {
-            free(inputBuffer[i]);
-            inputBuffer[i] = NULL;
-            printf("\nLine %d has been freed\n\n", i + 1);
-    
+        else if (IsKeyPressed(KEY_EQUAL)) {
+            *fontSize+=5.0;
+            *key = KEY_NULL;
+        }
+        else if (IsKeyPressed(KEY_MINUS)) {
+            *fontSize-=5.0;
+            *key = KEY_NULL;
         }
     }
 }
 
-int main() {
-    // argc is argument count, argv is argument vector
+void loadFile(Line *inputBuffer[], int *totalNumLines, int *beginDisplay, char *argv[]) {
+    FILE *fp = fopen(argv[1], "r");
+    if (fp == NULL) {
+        fprintf(stderr, "\nFailed to open file\n");
+        exit(1);
+    }
+    
+    char tempBuff[MAX_INPUT_CHARS];
+    while (fgets(tempBuff, MAX_INPUT_CHARS, fp) != NULL && *totalNumLines < maxNumLines) {
+        size_t len = strlen(tempBuff);
+    
+        if (len > 0 && tempBuff[len - 1] == '\n') {
+            tempBuff[len - 1] = '\0';
+            len--;
+        }
+        inputBuffer[*totalNumLines - 1] = malloc(sizeof(Line));
+        strcpy(inputBuffer[*totalNumLines - 1]->string, tempBuff);
+        inputBuffer[*totalNumLines - 1]->numChars = len;
+        (*totalNumLines)++;
+    }
+    (*totalNumLines)--;
+    fclose(fp);
+    *beginDisplay = 1;
+}
+
+void freeCleanUp(Line *inputBuffer[], int totalNumLines) {
+    printf("\n");
+    for (int i = 0; i < totalNumLines; i++) {
+        if (inputBuffer[i] != NULL) {
+            free(inputBuffer[i]);
+            inputBuffer[i] = NULL;
+            printf("Line %d has been freed\n", i + 1);
+            
+        }
+    }
+}
+
+
+int main(int argc, char *argv[]) {
     InitWindow(screenWidth, screenHeight, "text-editor-bitch!");
     SetTargetFPS(fpsCap);
     
-    Texture2D img = LoadTexture("resources/hands.jpg");
-    Font font = LoadFont("resources/Inter-Bold-slnt=0.ttf");
+    // Texture2D img = LoadTexture("resources/hands.jpg");
+    Font font = LoadFont("resources/JetBrainsMono-Bold.ttf");
 
-    if (font.baseSize == 0) {
-        fprintf(stderr, "\nFailed to load font!\n\n");
-    }
     Line *inputBuffer[maxNumLines] = { NULL };
 
-    Vector2 startingPos = { 35.0, 0.0 };
+    Vector2 startingPos = { 45.0, 0.0 };
 
+    float fontSize = 20.0;
+    float fontSpacing = fontSize / 10.0;
     int totalNumLines = 1;       // counter
     int beginDisplay = 0;        // flag
     int shiftFlag = 0;           // flag
@@ -565,17 +624,21 @@ int main() {
     inputBuffer[cursor.line] = malloc(sizeof(Line));
     inputBuffer[cursor.line]->numChars = 0;
     inputBuffer[cursor.line]->string[0] = '\0';
+    // Load text in from file
+    if (argc == 2) {
+        loadFile(inputBuffer, &totalNumLines, &beginDisplay, argv);
+    }
 
     while (!WindowShouldClose()) {
         int key = GetKeyPressed();
-        shortCuts(inputBuffer, &totalNumLines, &cursor, &key, &defaultViewingLine);
+        shortCuts(inputBuffer, &totalNumLines, &cursor, &key, &defaultViewingLine, &fontSize, &fontSpacing, &startingPos);
         handleKeyPress(key, inputBuffer, &beginDisplay, &shiftFlag, delTime, &totalNumLines, &cursor, &defaultViewingLine);
-
+        
         BeginDrawing();
         ClearBackground(BLACK);
-        DrawTexturePro(img, (Rectangle){ 0,0,(float)img.width,(float)img.height }, (Rectangle){ 0,0,screenWidth,screenHeight}, (Vector2){0,0}, 0.0f, WHITE);
-        DrawInput(startingPos, inputBuffer, &beginDisplay, font, key, blinkingClock, totalNumLines, &cursor, &defaultViewingLine);
-        DrawTextLines(startingPos, font, totalNumLines, &defaultViewingLine);
+        // DrawTexturePro(img, (Rectangle){ 0,0,(float)img.width,(float)img.height }, (Rectangle){ 0,0,screenWidth,screenHeight}, (Vector2){0,0}, 0.0f, WHITE);
+        DrawInput(startingPos, inputBuffer, &beginDisplay, font, key, blinkingClock, totalNumLines, &cursor, &defaultViewingLine, fontSize, fontSpacing);
+        DrawTextLines(startingPos, font, totalNumLines, &defaultViewingLine, fontSize, fontSpacing);
         EndDrawing();
     }
     // If accidently closed, then automatically write input buffer contents to the file
