@@ -494,7 +494,7 @@ void DrawInput(Vector2 startingPos, Line *inputBuffer[], int *beginDisplay, Font
             pos.y += fontSize;
         }
     }
-    DrawText("CTRL + O to save", 860, 520, 10, textColor);
+    DrawText("CTRL + S to save", 860, 520, 10, textColor);
     DrawCursor(startingPos, inputBuffer, key, blinkingClock, font, cursor, defaultViewingLine, fontSize, fontSpacing);
 }
 
@@ -533,7 +533,7 @@ void saveFunc(Line *inputBuffer[], int totalNumLines) {
 
 void shortCuts(Line *inputBuffer[], int *totalNumLines, Cursor *cursor, int *key, int *defaultViewingLine, float *fontSize, float *fontSpacing, Vector2 *startingPos) {
     if (IsKeyDown(KEY_LEFT_CONTROL)) {
-        if (IsKeyPressed(KEY_O)) {
+        if (IsKeyPressed(KEY_S)) {
             saveFunc(inputBuffer, *totalNumLines);
             *key = KEY_NULL;
         }
