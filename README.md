@@ -9,7 +9,9 @@ A basic text editor made using the raylib graphics library, written in C.
 - Okay so at the time of writing this you CANNOT write to new files, and you CANNOT save to any file that is NOT a .txt file. Dumb bug but fear not fellow reader I will fix it eventually...
 
 ## Demo
-![][resources/editor_demo.png]
+
+![](resources/editor_demo.png)
+
 ## Usage
  1. Editing a text file from the terminal
 ```
