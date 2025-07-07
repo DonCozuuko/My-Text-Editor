@@ -8,6 +8,8 @@ static const int screenWidth = 960;
 static const int screenHeight = 540;
 static const int fpsCap = 60;
 
+static char filename[50];
+
 #define MAX_INPUT_CHARS 200
 #define maxNumLines 1000
 
@@ -523,7 +525,7 @@ void DrawTextLines(Vector2 startingPos, Font font, int totalNumLines, int *defau
 }
 
 void saveFunc(Line *inputBuffer[], int totalNumLines) {
-    FILE *pf = fopen("text.txt", "w");
+    FILE *pf = fopen(filename, "w");
     // new lines appended automatically to each line string
     for (int i = 0; i < totalNumLines; i++) {
         fprintf(pf, "%s\n", inputBuffer[i]->string);
@@ -562,6 +564,8 @@ void shortCuts(Line *inputBuffer[], int *totalNumLines, Cursor *cursor, int *key
 
 void loadFile(Line *inputBuffer[], int *totalNumLines, int *beginDisplay, char *argv[]) {
     FILE *fp = fopen(argv[1], "r");
+    strcpy(filename, argv[1]);
+    printf("\n\n%s\n\n", filename);
     if (fp == NULL) {
         fprintf(stderr, "\nFailed to open file\n");
         exit(1);
